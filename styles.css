@@ -19,15 +19,17 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 15px;
+    gap: 10px;
+    margin-top: -50px; /* Підняли все поле вище */
 }
 
 .stats {
     display: flex;
     justify-content: space-between;
-    width: 320px;
+    width: 360px; /* 45px * 8 */
     font-size: 18px;
     font-weight: bold;
+    margin-bottom: 5px;
 }
 
 canvas {
@@ -40,17 +42,30 @@ canvas {
 #next-blocks {
     display: flex;
     gap: 10px;
-    margin-top: 10px;
-    min-height: 100px;
+    margin-top: 15px;
+    min-height: 110px;
+    width: 360px;
+    justify-content: center;
+}
+
+/* Контейнери-слоти для блоків */
+#next-blocks div {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 110px; /* Фіксована ширина, щоб сусідні блоки не совались */
+    height: 110px;
+    background-color: transparent; /* Повністю прозоро */
 }
 
 #next-blocks canvas {
     background-color: transparent;
     border: none;
 }
-/* --- СТИЛІ ДЛЯ МЕНЮ ПРОГРАШУ --- */
+
+/* СТИЛІ МОДАЛЬНОГО ВІКНА */
 .modal {
-    display: none; /* Спочатку ховаємо */
+    display: none;
     position: absolute;
     top: 0; left: 0;
     width: 100%; height: 100%;
@@ -71,18 +86,6 @@ canvas {
     width: 280px;
 }
 
-.modal-content h2 {
-    color: #FF073A;
-    margin: 0 0 15px 0;
-    font-size: 28px;
-}
-
-.modal-content p {
-    font-size: 20px;
-    margin: 10px 0;
-    color: #fff;
-}
-
 #restart-btn {
     background: #00FF7F;
     color: #121212;
@@ -94,10 +97,4 @@ canvas {
     cursor: pointer;
     margin-top: 20px;
     box-shadow: 0 4px 0 #00994d;
-    transition: all 0.1s;
-}
-
-#restart-btn:active {
-    transform: translateY(3px);
-    box-shadow: 0 1px 0 #00994d;
 }
