@@ -39,7 +39,7 @@ let nextBlocks = [];
 let selectedBlock = null;
 let isDragging = false;
 let mouseX = 0, mouseY = 0;
-const dragOffsetY = 100;
+const dragOffsetY = 200;
 
 // ДОПОМІЖНІ ФУНКЦІЇ
 function getRandomFrom(arr) {
