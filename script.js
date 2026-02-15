@@ -17,6 +17,7 @@ const dragOffsetY = 250;
 const blockColors = ['#FF073A', '#00FF7F', '#1E90FF', '#FFD700', '#FF4500', '#9400D3'];
 
 let score = 0;
+let streakCount = 0;
 let bestScore = localStorage.getItem('blockBlastBestScore') || 0;
 let grid = Array(rows).fill().map(() => Array(cols).fill(0));
 let nextBlocks = [];
@@ -27,46 +28,83 @@ let mouseX = 0, mouseY = 0;
 bestScoreDisplay.innerText = `Найкращий: ${bestScore}`;
 
 // ==========================================
-// 2. АРХЕТИПИ БЛОКІВ
+// 2. АРХЕТИПИ БЛОКІВ (ОНОВЛЕНО: Твої пріоритети)
 // ==========================================
 const archetypes = {
-    builders: [[[1, 1], [1, 1]], [[1, 1, 1], [1, 1, 1]], [[1, 1, 1], [0, 1, 0]]],
-    hooks: [[[1, 1, 0], [0, 1, 1]], [[1, 1, 1], [1, 0, 0]]],
-    saviors: [[[1]], [[1, 1]], [[1], [1]], [[1, 1], [1, 0]]],
-    bombs: [
-        [[1, 1, 1, 1, 1]], [[1], [1], [1], [1], [1]],
-        [[1, 1, 1, 1]], [[1, 1, 1], [1, 0, 0], [1, 0, 0]],
-        [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+    simple: [
+        [[1]], [[1, 1]], [[1], [1]], [[1, 1, 1]], [[1, 1], [1, 1]]
+    ],
+    // Твої улюблені фігури: кути 3х3 та палиці 4х1, 5х1
+    favorites: [
+        [[1, 1, 1], [1, 0, 0], [1, 0, 0]], // Кут 3х3
+        [[1, 1, 1, 1, 1]],                // Палиця 5х1
+        [[1], [1], [1], [1], [1]],        // Палиця 1х5
+        [[1, 1, 1, 1]],                   // Палиця 4х1
+        [[1, 1, 1], [1, 1, 1], [1, 1, 1]] // Квадрат 3х3
+    ],
+    challenging: [
+        [[1, 1, 0], [0, 1, 1]], [[1, 1, 1], [0, 1, 0]], [[1, 1], [1, 0]]
     ]
 };
 
 // ==========================================
-// 3. ГЕНЕРАЦІЯ
+// 3. ГЕНЕРАЦІЯ (The Director: Пріоритет на фаворитів)
 // ==========================================
-function getRandomFrom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function evaluatePlacement(tGrid, shape) {
+    let maxWeight = -1000;
+    for (let r = 0; r <= rows - shape.length; r++) {
+        for (let c = 0; c <= cols - shape[0].length; c++) {
+            if (canPlaceOnTemp(tGrid, shape, c, r)) {
+                let weight = 0;
+                let tempForEval = tGrid.map(row => [...row]);
+                applyToTemp(tempForEval, shape, c, r);
+
+                let lines = 0;
+                for (let i = 0; i < rows; i++) if (tempForEval[i].every(cell => cell !== 0)) lines++;
+                for (let i = 0; i < cols; i++) if (tempForEval.every(row => row[i] !== 0)) lines++;
+
+                weight += lines * 600; // Пріоритет на очищення
+                if (weight > maxWeight) maxWeight = weight;
+            }
+        }
+    }
+    return maxWeight;
+}
 
 function generateValidNextBlocks() {
     const filled = grid.flat().filter(v => v !== 0).length;
     const fullness = filled / (rows * cols);
-    let shapes = [];
 
-    if (fullness < 0.4) {
-        shapes = [getRandomFrom(archetypes.bombs), getRandomFrom(archetypes.bombs), getRandomFrom(archetypes.builders)];
-    } else if (fullness > 0.8) {
-        shapes = [getRandomFrom(archetypes.saviors), getRandomFrom(archetypes.saviors), getRandomFrom(archetypes.saviors)];
-    } else {
-        shapes = [getRandomFrom(archetypes.builders), getRandomFrom(archetypes.hooks), getRandomFrom(archetypes.bombs)];
+    // Створюємо пул кандидатів, де твої улюблені фігури мають більше шансів з'явитися
+    const pool = [
+        ...archetypes.simple,
+        ...archetypes.favorites, ...archetypes.favorites, // Подвійний шанс для фаворитів
+        ...archetypes.challenging
+    ];
+
+    let candidates = [];
+    for(let i = 0; i < 15; i++) {
+        let s = pool[Math.floor(Math.random() * pool.length)];
+        candidates.push({
+            shape: s,
+            weight: evaluatePlacement(grid, s),
+            color: blockColors[Math.floor(Math.random() * blockColors.length)]
+        });
     }
 
-    let candidate = shapes.map(s => ({
-        shape: s,
-        color: blockColors[Math.floor(Math.random() * blockColors.length)]
-    }));
+    // Сортуємо: найкращі ходи нагору
+    candidates.sort((a, b) => b.weight - a.weight);
 
-    return canSolve(grid, candidate) ? candidate : Array(3).fill().map(() => ({
-        shape: getRandomFrom(archetypes.saviors),
-        color: blockColors[Math.floor(Math.random() * blockColors.length)]
-    }));
+    let selected = [];
+    // Якщо поле вільне більше ніж на половину — даємо дофамін (кращі фігури)
+    if (fullness < 0.55) {
+        selected = candidates.slice(0, 3);
+    } else {
+        // Якщо поле забите — даємо одну ідеальну і дві середні (без жесті)
+        selected = [candidates[0], candidates[5], candidates[8]];
+    }
+
+    return selected.sort(() => Math.random() - 0.5).map(c => ({shape: c.shape, color: c.color}));
 }
 
 // ==========================================
@@ -80,47 +118,54 @@ function canPlace(shape, gx, gy) {
     }));
 }
 
-function clearLines() {
+function calculateScore(shape, linesCleared) {
+    let blocksCount = shape.flat().filter(cell => cell === 1).length;
+    let baseBlocks = blocksCount * (11 + Math.floor(Math.random() * 5));
+
+    let lineBonus = 0;
+    if (linesCleared === 1) lineBonus = 491 + Math.floor(Math.random() * 47);
+    else if (linesCleared === 2) lineBonus = 1283 + Math.floor(Math.random() * 112);
+    else if (linesCleared === 3) lineBonus = 2934 + Math.floor(Math.random() * 215);
+    else if (linesCleared === 4) lineBonus = 4712 + Math.floor(Math.random() * 380);
+
+    const multipliers = [1, 1.15, 2.35, 3.81, 5.14];
+    let currentMult = multipliers[Math.min(streakCount, 4)];
+
+    return Math.floor((baseBlocks + lineBonus) * currentMult);
+}
+
+function clearLines(placedShape) {
     let toClearRows = [], toClearCols = [];
     for (let r = 0; r < rows; r++) if (grid[r].every(cell => cell !== 0)) toClearRows.push(r);
     for (let c = 0; c < cols; c++) if (grid.every(r => r[c] !== 0)) toClearCols.push(c);
 
-    toClearRows.forEach(r => grid[r].fill(0));
-    toClearCols.forEach(c => grid.forEach(r => r[c] = 0));
+    const totalLines = toClearRows.length + toClearCols.length;
 
-    if (toClearRows.length || toClearCols.length) {
-        score += (toClearRows.length + toClearCols.length) * 10;
-        scoreDisplay.innerText = `Очки: ${score}`;
+    if (totalLines > 0) {
+        const pointsEarned = calculateScore(placedShape, totalLines);
+        score += pointsEarned;
+        streakCount++;
+
+        if (scoreDisplay) scoreDisplay.innerText = `Очки: ${score}`;
+        const sc = document.getElementById('score-container');
+        if (sc) sc.innerText = score;
+
         if (score > bestScore) {
             bestScore = score;
             localStorage.setItem('blockBlastBestScore', bestScore);
             bestScoreDisplay.innerText = `Найкращий: ${bestScore}`;
         }
+    } else {
+        streakCount = 0;
     }
+
+    toClearRows.forEach(r => grid[r].fill(0));
+    toClearCols.forEach(c => grid.forEach(r => r[c] = 0));
 }
 
 // ==========================================
 // 5. СИМУЛЯЦІЯ
 // ==========================================
-function canSolve(currentGrid, blocksLeft) {
-    const activeBlocks = blocksLeft.filter(b => b !== null);
-    if (activeBlocks.length === 0) return true;
-
-    const block = activeBlocks[0];
-    const remaining = activeBlocks.slice(1);
-
-    for (let r = 0; r <= rows - block.shape.length; r++) {
-        for (let c = 0; c <= cols - block.shape[0].length; c++) {
-            if (canPlaceOnTemp(currentGrid, block.shape, c, r)) {
-                let tempGrid = currentGrid.map(row => [...row]);
-                applyToTemp(tempGrid, block.shape, c, r);
-                if (canSolve(tempGrid, remaining)) return true;
-            }
-        }
-    }
-    return false;
-}
-
 function canPlaceOnTemp(tGrid, shape, gx, gy) {
     return shape.every((row, r) => row.every((v, c) => {
         if (!v) return true;
@@ -135,8 +180,17 @@ function applyToTemp(tGrid, shape, gx, gy) {
     }));
 }
 
+function canPlaceAnywhere(shape) {
+    for (let r = 0; r <= rows - shape.length; r++) {
+        for (let c = 0; c <= cols - shape[0].length; c++) {
+            if (canPlaceOnTemp(grid, shape, c, r)) return true;
+        }
+    }
+    return false;
+}
+
 // ==========================================
-// 6. МАЛЮВАННЯ
+// 6. МАЛЮВАННЯ (Без змін)
 // ==========================================
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -191,7 +245,7 @@ function renderNext() {
 }
 
 // ==========================================
-// 7. DRAG & DROP
+// 7. DRAG & DROP (Без змін)
 // ==========================================
 function updateCoords(e) {
     const rect = canvas.getBoundingClientRect();
@@ -219,7 +273,7 @@ const endDrag = () => {
             selectedBlock.shape.forEach((row, r) => row.forEach((v, c) => {
                 if (v) grid[gy + r][gx + c] = selectedBlock.color;
             }));
-            clearLines();
+            clearLines(selectedBlock.shape);
             nextBlocks[selectedBlock.index] = null;
             if (nextBlocks.every(b => b === null)) nextBlocks = generateValidNextBlocks();
             renderNext();
@@ -230,13 +284,8 @@ const endDrag = () => {
     selectedBlock = null; isDragging = false;
 };
 
-function canPlaceAnywhere(shape) {
-    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (canPlace(shape, c, r)) return true;
-    return false;
-}
-
 // ==========================================
-// 8. МЕНЮ
+// 8. МЕНЮ (Без змін)
 // ==========================================
 const modal = document.getElementById('game-over-modal');
 const restartBtn = document.getElementById('restart-btn');
@@ -248,7 +297,11 @@ function handleGameOver() {
 
 restartBtn.onclick = () => {
     grid = Array(rows).fill().map(() => Array(cols).fill(0));
-    score = 0; scoreDisplay.innerText = 'Очки: 0';
+    score = 0;
+    streakCount = 0;
+    scoreDisplay.innerText = 'Очки: 0';
+    const sc = document.getElementById('score-container');
+    if (sc) sc.innerText = '0';
     modal.style.display = 'none';
     nextBlocks = generateValidNextBlocks();
     renderNext();
