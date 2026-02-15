@@ -13,7 +13,7 @@ const rows = 8;
 canvas.width = gridSize * cols;
 canvas.height = gridSize * rows;
 
-const dragOffsetY = 550;
+const dragOffsetY = 250;
 const blockColors = ['#FF073A', '#00FF7F', '#1E90FF', '#FFD700', '#FF4500', '#9400D3'];
 
 let score = 0;
