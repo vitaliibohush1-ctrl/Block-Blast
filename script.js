@@ -12,12 +12,38 @@ let bestScore = localStorage.getItem('blockBlastBestScore') || 0;
 bestScoreDisplay.innerText = `Найкращий: ${bestScore}`;
 
 const blockColors = ['#FF073A', '#00FF7F', '#1E90FF', '#FFD700', '#FF4500', '#9400D3'];
-const blockShapes = [
-    [[1, 1], [1, 1]], [[1, 1, 1]], [[1], [1], [1]], [[1, 1], [0, 1]],
-    [[1, 0], [1, 1]], [[1, 1, 1], [0, 1, 0]], [[1, 1, 1], [1, 1, 1], [1, 1, 1]],
-    [[1, 1, 1, 1, 1]], [[1], [1], [1], [1], [1]], [[1, 1, 1, 1]], [[1], [1], [1], [1]],
-    [[1, 1], [1, 1], [1, 1]], [[1, 1, 1], [1, 1, 1]]
+
+
+// ОСНОВНІ БЛОКИ (Великі та складні)
+const primaryShapes = [
+    [[1, 1], [1, 1]], // Квадрат 2x2
+    [[1, 1, 1, 1, 1]], [[1], [1], [1], [1], [1]], // Лінії 5
+    [[1, 1, 1, 1]], [[1], [1], [1], [1]], // Лінії 4
+    [[1, 1], [1, 1], [1, 1]], [[1, 1, 1], [1, 1, 1]], // Прямокутники
+    [[1, 1, 1], [1, 1, 1], [1, 1, 1]], // Квадрат 3x3
+
+    // Пірамідки
+    [[1, 1, 1], [0, 1, 0]], [[0, 1, 0], [1, 1, 1]],
+    [[1, 0], [1, 1], [1, 0]], [[0, 1], [1, 1], [0, 1]],
+
+    // Великі кути 3x3
+    [[1, 0, 0], [1, 0, 0], [1, 1, 1]], [[0, 0, 1], [0, 0, 1], [1, 1, 1]],
+    [[1, 1, 1], [1, 0, 0], [1, 0, 0]], [[1, 1, 1], [0, 0, 1], [0, 0, 1]],
+
+    // Змійки
+    [[1, 1, 0], [0, 1, 1]], [[0, 1, 1], [1, 1, 0]],
+    [[1, 0], [1, 1], [0, 1]], [[0, 1], [1, 1], [1, 0]]
 ];
+
+// СПЕЦІАЛЬНІ БЛОКИ (Рятувальні, для виходу з тупика)
+const specialShapes = [
+    [[1]], // Крапка 1x1
+    [[1, 1]], [[1], [1]], // Дует 2x1
+    [[1, 1], [1, 0]], [[1, 1], [0, 1]], // Малі кутики
+    [[1, 0], [1, 1]], [[0, 1], [1, 1]]
+];
+
+
 
 let grid = Array(rows).fill().map(() => Array(cols).fill(0));
 let nextBlocks = [];
@@ -26,7 +52,7 @@ let isDragging = false;
 let mouseX = 0, mouseY = 0;
 
 // Офсет, щоб блок був над пальцем
-const dragOffsetY = 60;
+const dragOffsetY = 100;
 
 function updateCoords(e) {
     const rect = canvas.getBoundingClientRect();
@@ -181,25 +207,90 @@ function canPlaceAnywhere(shape) {
     return false;
 }
 
+// ГЕНЕРУЄМО НОВІ БЛОКИ
 function generateValidNextBlocks() {
-    let newBlocks;
     let attempts = 0;
-    let emptyCells = 0;
-    grid.forEach(row => row.forEach(cell => { if(cell === 0) emptyCells++; }));
 
-    while (attempts < 200) {
-        newBlocks = Array(3).fill().map(() => {
-            let randomIndex = Math.floor(Math.random() * blockShapes.length);
-            if (emptyCells < 25 && (randomIndex === 6 || randomIndex === 7 || randomIndex === 8)) {
-                randomIndex = Math.floor(Math.random() * 6);
-            }
-            return { shape: blockShapes[randomIndex], color: blockColors[randomIndex % blockColors.length] };
-        });
-        if (newBlocks.filter(b => canPlaceAnywhere(b.shape)).length >= 2) return newBlocks;
+    // Спроба 1: Тільки складні основні блоки
+    while (attempts < 300) {
+        let candidate = Array(3).fill().map(() => getRandomBlock(primaryShapes));
+        if (canSolve(grid, candidate)) return candidate;
         attempts++;
     }
-    return newBlocks;
+
+    // Спроба 2: Якщо не лізуть, додаємо 1-2 маленьких "спецблока"
+    while (attempts < 600) {
+        let candidate = [
+            getRandomBlock(primaryShapes),
+            getRandomBlock(specialShapes),
+            getRandomBlock(Math.random() > 0.5 ? primaryShapes : specialShapes)
+        ];
+        if (canSolve(grid, candidate)) return candidate;
+        attempts++;
+    }
+
+    // Спроба 3: Повний рятувальний режим (тільки маленькі блоки)
+    return Array(3).fill().map(() => getRandomBlock(specialShapes));
 }
+
+// Допоміжна функція для вибору випадкового блоку з кольором
+function getRandomBlock(shapesArray) {
+    const randomIndex = Math.floor(Math.random() * shapesArray.length);
+    return {
+        shape: shapesArray[randomIndex],
+        color: blockColors[Math.floor(Math.random() * blockColors.length)]
+    };
+}
+
+// cansolve і canplaysment on 2 функції які допомагають з підбором 3 блоків
+
+function canSolve(currentGrid, blocksLeft) {
+    if (blocksLeft.length === 0) return true;
+
+    for (let i = 0; i < blocksLeft.length; i++) {
+        const block = blocksLeft[i];
+        const remaining = blocksLeft.filter((_, idx) => idx !== i);
+
+        // Перевіряємо кожну клітинку для поточного блоку
+        for (let r = 0; r <= rows - block.shape.length; r++) {
+            for (let c = 0; c <= cols - block.shape[0].length; c++) {
+                if (canPlaceOnTemp(currentGrid, block.shape, c, r)) {
+                    // Копіюємо сітку та симулюємо встановлення + очищення
+                    let tempGrid = currentGrid.map(row => [...row]);
+                    applyToTemp(tempGrid, block.shape, c, r);
+                    clearTempLines(tempGrid);
+
+                    // Йдемо глибше в рекурсію
+                    if (canSolve(tempGrid, remaining)) return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+function canPlaceOnTemp(tGrid, shape, gx, gy) {
+    return shape.every((row, r) => row.every((v, c) => {
+        if (!v) return true;
+        let ny = gy + r, nx = gx + c;
+        return ny >= 0 && ny < rows && nx >= 0 && nx < cols && !tGrid[ny][nx];
+    }));
+}
+
+function applyToTemp(tGrid, shape, gx, gy) {
+    shape.forEach((row, r) => row.forEach((v, c) => {
+        if (v) tGrid[gy + r][gx + c] = 1;
+    }));
+}
+
+function clearTempLines(tGrid) {
+    let toClearRows = [], toClearCols = [];
+    for (let r = 0; r < rows; r++) if (tGrid[r].every(cell => cell !== 0)) toClearRows.push(r);
+    for (let c = 0; c < cols; c++) if (tGrid.every(r => r[c] !== 0)) toClearCols.push(c);
+    toClearRows.forEach(r => tGrid[r].fill(0));
+    toClearCols.forEach(c => tGrid.forEach(r => r[c] = 0));
+}
+
 
 const modal = document.getElementById('game-over-modal');
 const finalScoreText = document.getElementById('final-score');
