@@ -7,6 +7,74 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+      import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+      import { getDatabase, ref, set, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyDur6NqZyFIVzpi3WXWq3qB0u8RMwNUvHw",
+        authDomain: "block-blast-99621.firebaseapp.com",
+        projectId: "block-blast-99621",
+        storageBucket: "block-blast-99621.firebasestorage.app",
+        messagingSenderId: "576779446919",
+        appId: "1:576779446919:web:7ea5fab7ba8634bb772622",
+        databaseURL: "https://block-blast-99621-default-rtdb.europe-west1.firebasedatabase.app/"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const rtdb = getDatabase(app);
+
+      // Глобальний об'єкт для роботи з даними через script.js
+      window.GameDB = {
+        // Синхронізація рекорду при старті (Firestore)
+        async syncPlayer(user, currentBest) {
+          if (!user || user.id === "guest") return currentBest;
+          const userRef = doc(db, "players", String(user.id));
+          try {
+            const snap = await getDoc(userRef);
+            let best = currentBest;
+            if (snap.exists()) {
+              best = Math.max(snap.data().bestScore || 0, currentBest);
+            }
+            // Оновлюємо ім'я та рекорд у базі
+            await setDoc(userRef, {
+              name: user.first_name || "Гравець",
+              bestScore: best,
+              lastActive: serverTimestamp()
+            }, { merge: true });
+            return best;
+          } catch (e) {
+            console.error("Firebase Sync Error:", e);
+            return currentBest;
+          }
+        },
+
+        // Збереження нового рекорду (Firestore)
+        async updateScore(userId, score) {
+          if (!userId || userId === "guest") return;
+          const userRef = doc(db, "players", String(userId));
+          await setDoc(userRef, {
+            bestScore: score,
+            lastActive: serverTimestamp()
+          }, { merge: true });
+        },
+
+        // Відстеження живого онлайну (Realtime Database)
+        trackOnline(userId) {
+          if (!userId || userId === "guest") return;
+          const onlineRef = ref(rtdb, 'online/' + userId);
+          // Ставимо статус "online"
+          set(onlineRef, true);
+          // Автоматично видаляємо статус при закритті вкладки
+          onDisconnect(onlineRef).remove();
+        }
+      };
+    </script>
+
     <div id="game-container">
         <button id="settings-btn" class="icon-btn">⚙️</button>
 
@@ -31,7 +99,6 @@
         <div id="settings-modal" class="modal">
             <div class="modal-content">
                 <h2>Налаштування</h2>
-
                 <div class="setting-row">
                     <span>Музика</span>
                     <input type="checkbox" id="music-toggle" checked>
@@ -44,19 +111,15 @@
                     <span>Вібрація</span>
                     <input type="checkbox" id="vibe-toggle" checked>
                 </div>
-
                 <hr>
-
                 <div class="setting-row">
                     <span class="label-text">Replay</span>
                     <button id="restart-from-settings" class="action-btn">Play</button>
                 </div>
-
                 <div class="setting-row">
                     <span class="label-text">More settings</span>
                     <button id="more-settings-btn" class="action-btn set-btn">Set</button>
                 </div>
-
                 <button id="close-settings" class="close-link">Назад</button>
             </div>
         </div>

@@ -63,8 +63,52 @@ const archetypes = {
     challenging: [[[1, 1, 0], [0, 1, 1]], [[1, 1, 1], [0, 1, 0]], [[1, 1], [1, 0]]]
 };
 
+
 // ==========================================
-// 2. СТВОРЕННЯ БЛОКІВ (ГЕЕНРАЦІЯ)
+// 2. БЛОК СИНХРОНІЗАЦІЇ З ТЕЛЕГРАМ ТА БАЗОЮ
+// ==========================================
+
+// 1. Ініціалізація Telegram
+const tg = window.Telegram.WebApp;
+const telegramUser = tg.initDataUnsafe?.user || { id: "guest", first_name: "Гравець" };
+tg.expand(); // Розгортаємо на весь екран
+
+// 2. Функція синхронізації при старті
+async function initCloudSync() {
+    // Якщо гра відкрита не в Telegram, нічого не робимо
+    if (telegramUser.id === "guest") return;
+
+    try {
+        // Викликаємо метод з блоку, який ми прописали в index.html
+        const cloudBest = await window.GameDB.syncPlayer(telegramUser, bestScore);
+
+        // Якщо в базі рекорд більший за локальний — оновлюємо гру
+        if (cloudBest > bestScore) {
+            bestScore = cloudBest;
+            localStorage.setItem('blockBlastBestScore', bestScore);
+
+            // Оновлюємо текст на екрані (переконайся, що ці змінні існують)
+            if (typeof bestScoreDisplay !== 'undefined') {
+                bestScoreDisplay.innerText = `Найкращий: ${bestScore}`;
+            }
+        }
+    } catch (e) {
+        console.error("Синхронізація не вдалася:", e);
+    }
+}
+
+// Запускаємо синхронізацію відразу при завантаженні скрипта
+initCloudSync();
+
+// 3. Функція для збереження результату (викликати при Game Over)
+function syncGameOver(finalScore) {
+    if (telegramUser.id !== "guest" && finalScore >= bestScore) {
+        window.GameDB.updateScore(telegramUser.id, finalScore);
+    }
+}
+
+// ==========================================
+// 3. СТВОРЕННЯ БЛОКІВ (ГЕЕНРАЦІЯ)
 // ==========================================
 function evaluatePlacement(tGrid, shape) {
     let maxWeight = -1000;
@@ -100,7 +144,7 @@ function generateValidNextBlocks() {
 }
 
 // ==========================================
-// 3. ПРАВИЛА ГРИ (ЧИ МОЖНА ПОСТАВИТИ, ОЧИЩЕННЯ ЛІНІЙ, ОБРАХУНОК ОЧОК...)
+// 4. ПРАВИЛА ГРИ (ЧИ МОЖНА ПОСТАВИТИ, ОЧИЩЕННЯ ЛІНІЙ, ОБРАХУНОК ОЧОК...)
 // ==========================================
 function canPlace(shape, gx, gy) {
     return shape.every((row, r) => row.every((v, c) => {
@@ -173,7 +217,7 @@ function canPlaceAnywhere(shape) {
 }
 
 // ==========================================
-// 4. МАЛЮВАННЯ
+// 5. МАЛЮВАННЯ
 // ==========================================
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -223,7 +267,7 @@ function renderNext() {
 }
 
 // ==========================================
-// 5.  Рухи ВЗЯТИ ТА ПОСТАВИТИ  (DRAG & DROP)
+// 6.  Рухи ВЗЯТИ ТА ПОСТАВИТИ  (DRAG & DROP)
 // ==========================================
 function updateCoords(e) {
     const rect = canvas.getBoundingClientRect();
@@ -268,7 +312,7 @@ const endDrag = () => {
 };
 
 // ==========================================
-// 6. МУЗИКА ТА ЗВУКИ
+// 7. МУЗИКА ТА ЗВУКИ
 // ==========================================
 
 // Грати звук (враховує налаштування)
@@ -296,8 +340,10 @@ document.querySelectorAll('button').forEach(btn => {
         btn.addEventListener('click', () => playSound('click'));
     }
 });
+
+
 // ==========================================
-// 7. МЕНЮ ТА НАЛАШТУВАННЯ
+// 8. МЕНЮ ТА НАЛАШТУВАННЯ
 // ==========================================
 const modal = document.getElementById('game-over-modal');
 const restartBtn = document.getElementById('restart-btn');
@@ -305,6 +351,8 @@ const sModal = document.getElementById('settings-modal');
 
 function handleGameOver() {
     playSound('loss'); // Граємо перший звук
+
+    syncGameOver(score);// синхронізація від бази 7 БЛОК
     setTimeout(() => playSound('gameOver'), 600); // Другий звук через 0.6 сек
 
     document.getElementById('final-score').innerText = `Результат: ${score}`;
@@ -337,7 +385,7 @@ document.getElementById('restart-from-settings').onclick = () => {
 };
 
 // ==========================================
-// 8. ЗАПУСК
+// 9. ЗАПУСК
 // ==========================================
 window.addEventListener('mousemove', updateCoords);
 window.addEventListener('touchmove', (e) => { if(isDragging) e.preventDefault(); updateCoords(e); }, {passive: false});
@@ -346,7 +394,7 @@ nextBlocksDiv.ontouchstart = startDrag;
 window.onmouseup = endDrag;
 window.ontouchend = endDrag;
 
-toggleMusic(); // запуск музики 
+toggleMusic(); // запуск музики
 nextBlocks = generateValidNextBlocks();
 renderNext();
 draw();
