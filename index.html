@@ -8,6 +8,8 @@
 </head>
 <body>
     <div id="game-container">
+        <button id="settings-btn" class="icon-btn">⚙️</button>
+
         <div class="stats">
             <div id="score">Очки: 0</div>
             <div id="best-score">Найкращий: 0</div>
@@ -23,6 +25,39 @@
                 <p id="final-score">Твій результат: 0</p>
                 <p id="final-best">Найкращий: 0</p>
                 <button id="restart-btn">Грати знову 🎮</button>
+            </div>
+        </div>
+
+        <div id="settings-modal" class="modal">
+            <div class="modal-content">
+                <h2>Налаштування</h2>
+
+                <div class="setting-row">
+                    <span>Музика</span>
+                    <input type="checkbox" id="music-toggle" checked>
+                </div>
+                <div class="setting-row">
+                    <span>Звук</span>
+                    <input type="checkbox" id="sound-toggle" checked>
+                </div>
+                <div class="setting-row">
+                    <span>Вібрація</span>
+                    <input type="checkbox" id="vibe-toggle" checked>
+                </div>
+
+                <hr>
+
+                <div class="setting-row">
+                    <span class="label-text">Replay</span>
+                    <button id="restart-from-settings" class="action-btn">Play</button>
+                </div>
+
+                <div class="setting-row">
+                    <span class="label-text">More settings</span>
+                    <button id="more-settings-btn" class="action-btn set-btn">Set</button>
+                </div>
+
+                <button id="close-settings" class="close-link">Назад</button>
             </div>
         </div>
     </div>

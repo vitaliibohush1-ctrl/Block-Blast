@@ -98,3 +98,48 @@ canvas {
     margin-top: 20px;
     box-shadow: 0 4px 0 #00994d;
 }
+
+.setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin: 15px 0;
+    font-size: 18px;
+}
+
+.action-btn {
+    background: #00FF7F;
+    color: #121212;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.set-btn {
+    background: #1E90FF; /* Синій колір для More settings */
+    color: white;
+}
+
+.label-text {
+    font-weight: normal;
+    color: #ccc;
+}
+
+hr {
+    border: 0;
+    border-top: 1px solid #444;
+    margin: 15px 0;
+}
+
+.close-btn {
+    margin-top: 10px;
+    background: transparent;
+    color: #888;
+    border: 1px solid #444;
+    padding: 8px;
+    border-radius: 5px;
+    width: 100%;
+}
