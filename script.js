@@ -75,22 +75,24 @@ tg.expand(); // Розгортаємо на весь екран
 
 // 2. Функція синхронізації при старті
 async function initCloudSync() {
-    // Якщо гра відкрита не в Telegram, нічого не робимо
     if (telegramUser.id === "guest") return;
 
     try {
-        // Викликаємо метод з блоку, який ми прописали в index.html
-        const cloudBest = await window.GameDB.syncPlayer(telegramUser, bestScore);
+        if (window.GameDB) {
+            // Передаємо локальний рекорд для порівняння з хмарою
+            const finalBest = await window.GameDB.syncPlayer(telegramUser, bestScore);
 
-        // Якщо в базі рекорд більший за локальний — оновлюємо гру
-        if (cloudBest > bestScore) {
-            bestScore = cloudBest;
-            localStorage.setItem('blockBlastBestScore', bestScore);
-
-            // Оновлюємо текст на екрані (переконайся, що ці змінні існують)
-            if (typeof bestScoreDisplay !== 'undefined') {
+            // Якщо хмара повернула рекорд більший, ніж був на телефоні
+            if (finalBest > bestScore) {
+                bestScore = finalBest;
+                localStorage.setItem('blockBlastBestScore', bestScore);
                 bestScoreDisplay.innerText = `Найкращий: ${bestScore}`;
             }
+
+            // Активуємо статус "В мережі"
+            window.GameDB.trackOnline(telegramUser.id);
+        } else {
+            setTimeout(initCloudSync, 500); // Чекаємо завантаження Firebase
         }
     } catch (e) {
         console.error("Синхронізація не вдалася:", e);
