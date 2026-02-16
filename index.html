@@ -14,6 +14,7 @@
       import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
       import { getDatabase, ref, set, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+      // Твій виправлений конфіг (кома та лапки на місці)
       const firebaseConfig = {
         apiKey: "AIzaSyDur6NqZyFIVzpi3WXWq3qB0u8RMwNUvHw",
         authDomain: "block-blast-99621.firebaseapp.com",
@@ -28,9 +29,9 @@
       const db = getFirestore(app);
       const rtdb = getDatabase(app);
 
-      // Глобальний об'єкт для роботи з даними через script.js
+      // Інструменти для script.js
       window.GameDB = {
-        // Синхронізація рекорду при старті (Firestore)
+        // Синхронізація рекорду (Firestore)
         async syncPlayer(user, currentBest) {
           if (!user || user.id === "guest") return currentBest;
           const userRef = doc(db, "players", String(user.id));
@@ -40,7 +41,6 @@
             if (snap.exists()) {
               best = Math.max(snap.data().bestScore || 0, currentBest);
             }
-            // Оновлюємо ім'я та рекорд у базі
             await setDoc(userRef, {
               name: user.first_name || "Гравець",
               bestScore: best,
@@ -48,12 +48,12 @@
             }, { merge: true });
             return best;
           } catch (e) {
-            console.error("Firebase Sync Error:", e);
+            console.error("Firebase Error:", e);
             return currentBest;
           }
         },
 
-        // Збереження нового рекорду (Firestore)
+        // Оновлення рекорду
         async updateScore(userId, score) {
           if (!userId || userId === "guest") return;
           const userRef = doc(db, "players", String(userId));
@@ -63,14 +63,12 @@
           }, { merge: true });
         },
 
-        // Відстеження живого онлайну (Realtime Database)
+        // Живий онлайн (Realtime Database)
         trackOnline(userId) {
           if (!userId || userId === "guest") return;
           const onlineRef = ref(rtdb, 'online/' + userId);
-          // Ставимо статус "online"
           set(onlineRef, true);
-          // Автоматично видаляємо статус при закритті вкладки
-          onDisconnect(onlineRef).remove();
+          onDisconnect(onlineRef).remove(); // Видалити при виході
         }
       };
     </script>
@@ -84,7 +82,6 @@
         </div>
 
         <canvas id="gameCanvas" width="320" height="320"></canvas>
-
         <div id="next-blocks"></div>
 
         <div id="game-over-modal" class="modal">
@@ -115,10 +112,6 @@
                 <div class="setting-row">
                     <span class="label-text">Replay</span>
                     <button id="restart-from-settings" class="action-btn">Play</button>
-                </div>
-                <div class="setting-row">
-                    <span class="label-text">More settings</span>
-                    <button id="more-settings-btn" class="action-btn set-btn">Set</button>
                 </div>
                 <button id="close-settings" class="close-link">Назад</button>
             </div>
