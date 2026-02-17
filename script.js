@@ -1,6 +1,16 @@
 // ==========================================
 // 1. КОНСТАНТИ, вводні змінні
 // ==========================================
+const tg = window.Telegram.WebApp;
+const telegramUser = tg.initDataUnsafe?.user || { id: "guest", first_name: "Гравець" };
+
+// Налаштування вікна Telegram
+tg.expand();
+tg.enableClosingConfirmation();
+if (tg.requestFullscreen) {
+    tg.requestFullscreen();
+}
+
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const scoreDisplay = document.getElementById('score');
@@ -79,11 +89,6 @@ if (tg.requestFullscreen) {
 // 2. БЛОК СИНХРОНІЗАЦІЇ З ТЕЛЕГРАМ ТА БАЗОЮ
 // ==========================================
 
-// 1. Ініціалізація Telegram
-const tg = window.Telegram.WebApp;
-const telegramUser = tg.initDataUnsafe?.user || { id: "guest", first_name: "Гравець" };
-tg.expand(); // Розгортаємо на весь екран
-
 // 2. Функція синхронізації при старті
 async function initCloudSync() {
     if (telegramUser.id === "guest") return;
@@ -109,9 +114,9 @@ async function initCloudSync() {
         console.error("Синхронізація не вдалася:", e);
     }
 }
-
 // Запускаємо синхронізацію відразу при завантаженні скрипта
 initCloudSync();
+
 
 // 3. Функція для збереження результату (викликати при Game Over)
 function syncGameOver(finalScore) {
