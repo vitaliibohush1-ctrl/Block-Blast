@@ -63,6 +63,17 @@ const archetypes = {
     challenging: [[[1, 1, 0], [0, 1, 1]], [[1, 1, 1], [0, 1, 0]], [[1, 1], [1, 0]]]
 };
 
+// 1. Ініціалізація Telegram
+const tg = window.Telegram.WebApp;
+const telegramUser = tg.initDataUnsafe?.user || { id: "guest", first_name: "Гравець" };
+
+tg.expand(); // Розгортає вікно
+tg.enableClosingConfirmation(); // Додає підтвердження при закритті
+
+if (tg.requestFullscreen) {
+    tg.requestFullscreen(); // Запитує справжній повний екран
+}
+
 
 // ==========================================
 // 2. БЛОК СИНХРОНІЗАЦІЇ З ТЕЛЕГРАМ ТА БАЗОЮ
